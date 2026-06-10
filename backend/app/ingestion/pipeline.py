@@ -200,8 +200,11 @@ async def _drain(
         page_cursor = page.next_cursor
 
     if max_internal_date is not None:
-        cursor_str = str(int(max_internal_date.timestamp() * 1000))
+        new_ms = int(max_internal_date.timestamp() * 1000)
         async with session_factory() as session:
+            state = await repo.get_or_create_sync_state(session, provider_name, account)
+            old_ms = int(state.cursor) if state.cursor else 0
+            cursor_str = str(max(new_ms, old_ms))
             await repo.update_sync_cursor(session, provider_name, account, cursor_str)
             await session.commit()
 
