@@ -1,1 +1,17 @@
 .DS_Store
+
+# Secrets — never commit
+.env
+credentials.json
+token.json
+
+# Python artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+*.db-journal
+
+# Virtualenvs
+.venv/
+venv/
