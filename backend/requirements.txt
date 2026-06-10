@@ -1,0 +1,35 @@
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+
+# Database
+sqlalchemy[asyncio]==2.0.41
+aiosqlite==0.21.0
+
+# Pydantic v2 + settings
+pydantic==2.11.5
+pydantic-settings==2.9.1
+
+# Gmail API
+google-api-python-client==2.172.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.2
+
+# HTTP client (Ollama API + image downloads)
+httpx==0.28.1
+
+# HTML → text (email body cleaning)
+beautifulsoup4==4.13.4
+lxml==5.4.0
+
+# Image validation (pixel filter, dimensions)
+Pillow==11.2.1
+
+# Async file I/O
+aiofiles==24.1.0
+
+# Dev tooling
+ruff==0.11.13
+black==25.1.0
+pytest==8.3.5
+pytest-asyncio==0.26.0
