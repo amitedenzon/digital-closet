@@ -174,3 +174,60 @@ async def test_order_with_two_items(session: AsyncSession):
     saved_items = item_result.scalars().all()
     assert len(saved_items) == 2
     assert {i.item_name for i in saved_items} == {"Blue Jeans", "White T-Shirt"}
+
+
+async def test_processed_messages_table_created(session: AsyncSession):
+    result = await session.execute(
+        text(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+            " AND name='processed_messages'"
+        )
+    )
+    assert result.scalar() == "processed_messages"
+
+
+async def test_processed_message_insert(session: AsyncSession):
+    from app.models import MessageResult, ProcessedMessage
+
+    msg = ProcessedMessage(
+        message_id="gmail-abc123",
+        provider="gmail",
+        account="amit@gmail.com",
+        result=MessageResult.extracted,
+    )
+    session.add(msg)
+    await session.commit()
+
+    result = await session.execute(
+        select(ProcessedMessage).where(ProcessedMessage.message_id == "gmail-abc123")
+    )
+    saved = result.scalar_one()
+    assert saved.provider == "gmail"
+    assert saved.result == MessageResult.extracted
+    assert saved.order_id is None
+
+
+async def test_sync_state_table_created(session: AsyncSession):
+    result = await session.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table' AND name='sync_state'")
+    )
+    assert result.scalar() == "sync_state"
+
+
+async def test_sync_state_insert(session: AsyncSession):
+    from app.models import SyncState
+
+    state = SyncState(
+        provider="gmail",
+        account="amit@gmail.com",
+        cursor="internalDate:1234567890",
+    )
+    session.add(state)
+    await session.commit()
+
+    result = await session.execute(
+        select(SyncState).where(SyncState.provider == "gmail")
+    )
+    saved = result.scalar_one()
+    assert saved.cursor == "internalDate:1234567890"
+    assert saved.id is not None

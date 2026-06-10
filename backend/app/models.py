@@ -99,3 +99,32 @@ class Item(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     order: Mapped[Order] = relationship("Order", back_populates="items")
+
+
+class ProcessedMessage(Base):
+    __tablename__ = "processed_messages"
+
+    message_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text)
+    account: Mapped[str] = mapped_column(Text)
+    result: Mapped[MessageResult] = mapped_column(Enum(MessageResult))
+    order_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now
+    )
+
+
+class SyncState(Base):
+    __tablename__ = "sync_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(Text)
+    account: Mapped[str] = mapped_column(Text)
+    cursor: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("provider", "account", name="uq_sync_state_provider_account"),
+    )
