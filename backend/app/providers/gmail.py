@@ -129,7 +129,7 @@ class GmailProvider:
 
     async def search(self, query: ProviderQuery, cursor: str | None) -> Page:
         q_str = _build_query_string(query)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def _list() -> dict:
             kwargs: dict[str, Any] = {
@@ -157,7 +157,7 @@ class GmailProvider:
         return Page(refs=refs, next_cursor=next_cursor)
 
     async def fetch(self, message_id: str) -> RawMessage:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def _get() -> dict:
             return (
