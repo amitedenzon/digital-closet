@@ -1,4 +1,9 @@
+from datetime import datetime, timezone
+
+import pytest
 import sqlalchemy as sa
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
@@ -61,3 +66,54 @@ def test_message_result_values():
         "skipped_llm",
         "error",
     }
+
+
+async def test_order_table_created(session: AsyncSession):
+    result = await session.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'")
+    )
+    assert result.scalar() == "orders"
+
+
+async def test_order_insert_and_retrieve(session: AsyncSession):
+    from app.models import Order, OrderStatus
+
+    order = Order(
+        vendor_name="Zara",
+        vendor_domain="zara.com",
+        merchant_order_id="ORDER-001",
+        purchase_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+    )
+    session.add(order)
+    await session.commit()
+
+    result = await session.execute(
+        select(Order).where(Order.vendor_domain == "zara.com")
+    )
+    saved = result.scalar_one()
+    assert saved.vendor_name == "Zara"
+    assert saved.status == OrderStatus.active
+    assert len(saved.id) == 36  # UUID string
+
+
+async def test_duplicate_order_raises_integrity_error(session: AsyncSession):
+    from app.models import Order
+
+    order1 = Order(
+        vendor_name="Nike",
+        vendor_domain="nike.com",
+        merchant_order_id="NIKE-001",
+        purchase_date=datetime(2024, 5, 10, tzinfo=timezone.utc),
+    )
+    session.add(order1)
+    await session.commit()
+
+    order2 = Order(
+        vendor_name="Nike",
+        vendor_domain="nike.com",
+        merchant_order_id="NIKE-001",
+        purchase_date=datetime(2024, 5, 11, tzinfo=timezone.utc),
+    )
+    session.add(order2)
+    with pytest.raises(IntegrityError):
+        await session.commit()
