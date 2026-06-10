@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
@@ -13,6 +14,8 @@ from app.models import (
     ProcessedMessage,
     SyncState,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def is_processed(session: AsyncSession, message_id: str) -> bool:
@@ -62,6 +65,12 @@ async def upsert_order(
         )
         result = await session.execute(stmt)
         existing = result.scalar_one_or_none()
+    else:
+        logger.warning(
+            "upsert_order: skipping dedup (vendor_domain=%r, merchant_order_id=%r) — will always insert new row",
+            extraction.vendor_domain,
+            extraction.merchant_order_id,
+        )
 
     if existing is not None:
         if extraction.total_price is not None:
@@ -110,6 +119,10 @@ async def get_or_create_sync_state(
     result = await session.execute(stmt)
     state = result.scalar_one_or_none()
     if state is None:
+        # TOCTOU race: concurrent callers could both see None and both attempt INSERT,
+        # hitting uq_sync_state_provider_account with an IntegrityError. For the POC
+        # this is acceptable since ingestion runs serially. A production fix would use
+        # INSERT OR IGNORE + re-SELECT or move to INSERT RETURNING with ON CONFLICT.
         state = SyncState(provider=provider, account=account)
         session.add(state)
         await session.flush()
