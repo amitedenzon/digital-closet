@@ -69,6 +69,8 @@ class Order(Base):
     items: Mapped[list[Item]] = relationship("Item", back_populates="order")
 
     __table_args__ = (
+        # NULL merchant_order_id bypasses this constraint (SQL NULL != NULL semantics).
+        # repo.py UPSERT must handle the NULL case explicitly via a fallback key.
         UniqueConstraint("vendor_domain", "merchant_order_id", name="uq_order_dedup"),
     )
 
