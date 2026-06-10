@@ -36,18 +36,28 @@ async def test_make_session_factory_yields_async_session():
 
 def test_order_status_values():
     from app.models import OrderStatus
+
     assert set(e.value for e in OrderStatus) == {
-        "active", "shipped", "partially_returned", "returned", "cancelled"
+        "active",
+        "shipped",
+        "partially_returned",
+        "returned",
+        "cancelled",
     }
 
 
 def test_item_status_values():
     from app.models import ItemStatus
+
     assert set(e.value for e in ItemStatus) == {"active", "returned", "cancelled"}
 
 
 def test_message_result_values():
     from app.models import MessageResult
+
     assert set(e.value for e in MessageResult) == {
-        "extracted", "skipped_prefilter", "skipped_llm", "error"
+        "extracted",
+        "skipped_prefilter",
+        "skipped_llm",
+        "error",
     }

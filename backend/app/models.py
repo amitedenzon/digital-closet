@@ -1,22 +1,4 @@
 import enum
-import uuid
-from datetime import datetime, timezone
-from decimal import Decimal
-
-from sqlalchemy import (
-    DateTime,
-    Enum,
-    Float,
-    ForeignKey,
-    Integer,
-    Numeric,
-    String,
-    Text,
-    UniqueConstraint,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.db import Base
 
 
 class OrderStatus(str, enum.Enum):
