@@ -118,6 +118,7 @@ async def test_duplicate_order_raises_integrity_error(session: AsyncSession):
     session.add(order2)
     with pytest.raises(IntegrityError):
         await session.commit()
+    await session.rollback()
 
 
 async def test_items_table_created(session: AsyncSession):
@@ -231,3 +232,15 @@ async def test_sync_state_insert(session: AsyncSession):
     saved = result.scalar_one()
     assert saved.cursor == "internalDate:1234567890"
     assert saved.id is not None
+
+
+async def test_sync_state_duplicate_provider_account_rejected(session: AsyncSession):
+    from app.models import SyncState
+
+    session.add(SyncState(provider="gmail", account="a@b.com", cursor="tok1"))
+    await session.commit()
+
+    session.add(SyncState(provider="gmail", account="a@b.com", cursor="tok2"))
+    with pytest.raises(IntegrityError):
+        await session.commit()
+    await session.rollback()

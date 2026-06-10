@@ -108,6 +108,7 @@ class ProcessedMessage(Base):
     provider: Mapped[str] = mapped_column(Text)
     account: Mapped[str] = mapped_column(Text)
     result: Mapped[MessageResult] = mapped_column(Enum(MessageResult))
+    # Soft reference — no FK so this row survives order deletion (history is kept).
     order_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now
