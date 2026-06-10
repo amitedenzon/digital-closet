@@ -8,7 +8,9 @@ from decimal import Decimal
 from sqlalchemy import (
     DateTime,
     Enum,
+    Float,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -80,8 +82,20 @@ class Item(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     order_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("orders.id"), nullable=False
+        String(36), ForeignKey("orders.id", ondelete="CASCADE")
     )
+    item_name: Mapped[str] = mapped_column(Text)
+    brand: Mapped[str | None] = mapped_column(Text, nullable=True)
+    size: Mapped[str | None] = mapped_column(Text, nullable=True)
+    color: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    price: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url_src: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[ItemStatus] = mapped_column(
+        Enum(ItemStatus), default=ItemStatus.active
+    )
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     order: Mapped[Order] = relationship("Order", back_populates="items")

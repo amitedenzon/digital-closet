@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 import sqlalchemy as sa
@@ -117,3 +118,59 @@ async def test_duplicate_order_raises_integrity_error(session: AsyncSession):
     session.add(order2)
     with pytest.raises(IntegrityError):
         await session.commit()
+
+
+async def test_items_table_created(session: AsyncSession):
+    result = await session.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table' AND name='items'")
+    )
+    assert result.scalar() == "items"
+
+
+async def test_order_with_two_items(session: AsyncSession):
+    from app.models import Item, Order
+
+    order = Order(
+        vendor_name="ASOS",
+        vendor_domain="asos.com",
+        merchant_order_id="ASOS-999",
+        purchase_date=datetime(2024, 3, 1, tzinfo=timezone.utc),
+        currency="GBP",
+        total_price=Decimal("89.99"),
+    )
+    session.add(order)
+    await session.flush()
+
+    session.add_all(
+        [
+            Item(
+                order_id=order.id,
+                item_name="Blue Jeans",
+                size="32",
+                color="blue",
+                quantity=1,
+                price=Decimal("49.99"),
+            ),
+            Item(
+                order_id=order.id,
+                item_name="White T-Shirt",
+                size="M",
+                color="white",
+                quantity=1,
+                price=Decimal("19.99"),
+            ),
+        ]
+    )
+    await session.commit()
+
+    result = await session.execute(
+        select(Order).where(Order.vendor_domain == "asos.com")
+    )
+    saved_order = result.scalar_one()
+
+    item_result = await session.execute(
+        select(Item).where(Item.order_id == saved_order.id)
+    )
+    saved_items = item_result.scalars().all()
+    assert len(saved_items) == 2
+    assert {i.item_name for i in saved_items} == {"Blue Jeans", "White T-Shirt"}
