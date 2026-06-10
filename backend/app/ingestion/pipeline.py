@@ -174,15 +174,22 @@ async def _drain(
 
                 except Exception as exc:
                     await session.rollback()
-                    async with session_factory() as err_session:
-                        await repo.record_processed(
-                            err_session,
-                            message_id=ref.message_id,
-                            provider=provider_name,
-                            account=account,
-                            result=MessageResult.error,
+                    try:
+                        async with session_factory() as err_session:
+                            await repo.record_processed(
+                                err_session,
+                                message_id=ref.message_id,
+                                provider=provider_name,
+                                account=account,
+                                result=MessageResult.error,
+                            )
+                            await err_session.commit()
+                    except Exception as record_exc:
+                        logger.exception(
+                            "error:failed_to_record_error message_id=%s",
+                            ref.message_id,
+                            exc_info=record_exc,
                         )
-                        await err_session.commit()
                     result.errors += 1
                     logger.exception(
                         "error:processing message_id=%s", ref.message_id, exc_info=exc
