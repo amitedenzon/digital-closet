@@ -20,9 +20,9 @@ the order id and affected items.
 
 
 def build_user_message(msg: CleanedMessage) -> str:
-    image_lines = "\n".join(
-        f"{i + 1}. {src}" for i, src in enumerate(msg.image_srcs)
-    ) or "None"
+    image_lines = (
+        "\n".join(f"{i + 1}. {src}" for i, src in enumerate(msg.image_srcs)) or "None"
+    )
     return (
         f"Vendor domain: {msg.vendor_domain}\n"
         f"Subject: {msg.subject}\n"
