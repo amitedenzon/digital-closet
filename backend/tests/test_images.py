@@ -307,7 +307,7 @@ async def test_download_order_images_skips_tiny_image(tmp_path):
     await download_order_images(
         session,
         items=[item],
-        image_urls=["https://example.com/pixel.png"],
+        image_urls=["https://example.com/logo.png"],
         vendor_domain="example.com",
         order_id="order-xyz",
         store_dir=tmp_path,
