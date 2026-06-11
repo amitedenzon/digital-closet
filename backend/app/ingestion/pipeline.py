@@ -186,10 +186,12 @@ async def _drain(
                             logger.info("skip:llm message_id=%s", ref.message_id)
                             continue
 
-                        order, db_items = await repo.upsert_order(session, extraction)
+                        order, db_items, image_urls = await repo.upsert_order(
+                            session, extraction
+                        )
                         await images.download_order_images(
                             db_items,
-                            [item.image_url for item in extraction.items],
+                            image_urls,
                             vendor_domain=extraction.vendor_domain or "",
                             order_id=order.id,
                             store_dir=Path(_settings.IMAGE_STORE_DIR),

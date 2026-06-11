@@ -264,7 +264,7 @@ async def test_orders_returns_order_with_items(client, test_session_factory):
 @pytest.mark.asyncio
 async def test_images_returns_404_for_no_image(client, test_session_factory):
     async with test_session_factory() as session:
-        order, db_items = await repo.upsert_order(session, _extraction())
+        order, db_items, _ = await repo.upsert_order(session, _extraction())
         item_id = db_items[0].id
         await session.commit()
 
@@ -284,7 +284,7 @@ async def test_images_returns_404_for_unknown_item(client):
 @pytest.mark.asyncio
 async def test_update_item_status_to_returned(client, test_session_factory):
     async with test_session_factory() as session:
-        order, db_items = await repo.upsert_order(session, _extraction())
+        order, db_items, _ = await repo.upsert_order(session, _extraction())
         item_id = db_items[0].id
         await session.commit()
 

@@ -76,7 +76,7 @@ async def test_upsert_order_inserts_new(session: AsyncSession):
 
     from app.store.repo import upsert_order
 
-    order, _ = await upsert_order(session, _extraction())
+    order, _, _ = await upsert_order(session, _extraction())
     await session.commit()
 
     saved = (
@@ -95,7 +95,7 @@ async def test_upsert_order_returns_items_with_ids(session: AsyncSession):
             ExtractedItem(item_name="White Tee"),
         ]
     )
-    order, items = await upsert_order(session, extraction)
+    order, items, _ = await upsert_order(session, extraction)
     await session.commit()
 
     assert len(items) == 2
@@ -112,7 +112,7 @@ async def test_upsert_order_update_path_returns_new_items(session: AsyncSession)
     )
     await session.commit()
 
-    _, items = await upsert_order(
+    _, items, _ = await upsert_order(
         session,
         _extraction(items=[ExtractedItem(item_name="New Coat")]),
     )
@@ -143,7 +143,7 @@ async def test_upsert_order_updates_existing_not_duplicate(session: AsyncSession
     assert saved.total_price == Decimal("75.00")
 
 
-async def test_upsert_order_replaces_items_on_update(session: AsyncSession):
+async def test_upsert_order_preserves_existing_items_on_update(session: AsyncSession):
     from sqlalchemy import select
 
     from app.models import Item
@@ -159,19 +159,30 @@ async def test_upsert_order_replaces_items_on_update(session: AsyncSession):
     await session.commit()
 
     second = _extraction(items=[ExtractedItem(item_name="New Coat")])
-    order, _ = await upsert_order(session, second)
+    order, new_items, _ = await upsert_order(session, second)
     await session.commit()
 
-    items = (
+    # Only "New Coat" was newly inserted
+    assert len(new_items) == 1
+    assert new_items[0].item_name == "New Coat"
+
+    # All 3 items survive in DB — the update path no longer deletes existing items
+    all_items = (
         (await session.execute(select(Item).where(Item.order_id == order.id)))
         .scalars()
         .all()
     )
-    assert len(items) == 1
-    assert items[0].item_name == "New Coat"
+    assert len(all_items) == 3
+    names = {i.item_name for i in all_items}
+    assert names == {"Old Shirt", "Old Jeans", "New Coat"}
 
 
-async def test_upsert_order_null_merchant_id_always_inserts(session: AsyncSession):
+async def test_upsert_order_null_merchant_id_fallback_dedup(session: AsyncSession):
+    """
+    When merchant_order_id is NULL the fallback dedup fires on
+    (vendor_domain, date(purchase_date), total_price).  Two extractions with
+    the same vendor/date/price should resolve to a single order row.
+    """
     from sqlalchemy import func, select
 
     from app.store.repo import upsert_order
@@ -184,7 +195,29 @@ async def test_upsert_order_null_merchant_id_always_inserts(session: AsyncSessio
     count = (
         await session.execute(select(func.count()).select_from(Order))
     ).scalar_one()
-    assert count == 2
+    assert count == 1  # fallback dedup matched on vendor+date+price
+
+
+async def test_upsert_order_null_merchant_id_inserts_when_price_differs(
+    session: AsyncSession,
+):
+    """
+    Two NULL-merchant_order_id extractions with different prices should each
+    produce their own order row (fallback dedup does not fire).
+    """
+    from sqlalchemy import func, select
+
+    from app.store.repo import upsert_order
+
+    await upsert_order(session, _extraction(merchant_order_id=None, total_price=50.0))
+    await session.commit()
+    await upsert_order(session, _extraction(merchant_order_id=None, total_price=75.0))
+    await session.commit()
+
+    count = (
+        await session.execute(select(func.count()).select_from(Order))
+    ).scalar_one()
+    assert count == 2  # different prices → different orders
 
 
 async def test_get_or_create_sync_state_creates_once(session: AsyncSession):
