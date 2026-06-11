@@ -38,6 +38,21 @@ Keep it small — one page:
 Plain `fetch` to the FastAPI base URL (configurable via `.env`/Vite env). No state library
 needed; `useState`/`useEffect` is enough. CORS enabled on the backend for the Vite origin.
 
+## Phase-04 cleanup (do this on the way)
+
+While implementing phase 05, remove the unused `session` parameter from
+`download_order_images` in `backend/app/ingestion/images.py`. The function mutates
+`item.image_path` in-place; SQLAlchemy dirty-tracking + the caller's `session.commit()`
+handles persistence — no session methods are called inside the function.
+
+Changes required:
+- `backend/app/ingestion/images.py`: remove `session: AsyncSession` parameter and its
+  import (`from sqlalchemy.ext.asyncio import AsyncSession`)
+- `backend/app/ingestion/pipeline.py`: drop `session` from the `download_order_images`
+  call (line ~177)
+- `backend/tests/test_images.py`: drop `session = MagicMock()` and the `session`
+  argument from all six `download_order_images` test calls
+
 ## Definition of done
 `Initialize` kicks off a backfill, the progress bar advances, and the grid fills with real
 purchased items (with images) once done. `Sync since last check` adds only newer purchases.
