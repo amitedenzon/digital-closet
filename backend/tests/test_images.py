@@ -32,6 +32,7 @@ def _make_jpeg(w: int, h: int) -> bytes:
 
 # --- is_junk_url ---
 
+
 def test_junk_data_uri():
     assert is_junk_url("data:image/png;base64,abc123") is True
 
@@ -70,6 +71,7 @@ def test_not_junk_https_with_query():
 
 # --- _image_ext_from_bytes ---
 
+
 def test_ext_jpeg():
     content = _make_jpeg(10, 10)
     assert _image_ext_from_bytes(content) == "jpg"
@@ -85,6 +87,7 @@ def test_ext_unknown():
 
 
 # --- is_tiny_image ---
+
 
 def test_not_tiny_200x200():
     assert is_tiny_image(_make_png(200, 200), min_dimension=100) is False
@@ -111,6 +114,7 @@ def test_exactly_at_boundary_is_not_tiny():
 
 
 # --- content_hash ---
+
 
 def test_content_hash_is_deterministic():
     b = b"hello world"
