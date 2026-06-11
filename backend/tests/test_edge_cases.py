@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Item, ItemStatus, Order, OrderStatus  # noqa: F401 — future tests
 from app.schemas import ExtractedItem, ExtractionResult
-from app.store.repo import apply_refund_or_cancellation, upsert_order  # noqa: F401
+from app.store.repo import upsert_order
 
 
 def _make_extraction(**kwargs) -> ExtractionResult:

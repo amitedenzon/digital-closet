@@ -95,7 +95,7 @@ async def upsert_order(
                 extraction.total_price,
             )
         else:
-            logger.warning(
+            logger.info(
                 "upsert_order: dedup_key=none vendor=%s — inserting new row",
                 extraction.vendor_domain,
             )
