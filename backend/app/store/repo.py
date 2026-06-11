@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extraction.base import ExtractionResult
+from app.schemas import ExtractionResult
 from app.models import (
     Item,
     MessageResult,
@@ -102,7 +102,7 @@ async def upsert_order(
                 color=item_data.color,
                 quantity=item_data.quantity,
                 price=item_data.price,
-                image_url_src=item_data.image_url_src,
+                image_url_src=item_data.image_url,
             )
         )
     await session.flush()
