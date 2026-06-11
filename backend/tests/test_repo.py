@@ -86,6 +86,43 @@ async def test_upsert_order_inserts_new(session: AsyncSession):
     assert saved.merchant_order_id == "ZR-001"
 
 
+async def test_upsert_order_returns_items_with_ids(session: AsyncSession):
+    from app.store.repo import upsert_order
+
+    extraction = _extraction(
+        items=[
+            ExtractedItem(item_name="Blue Jeans"),
+            ExtractedItem(item_name="White Tee"),
+        ]
+    )
+    order, items = await upsert_order(session, extraction)
+    await session.commit()
+
+    assert len(items) == 2
+    assert all(i.id is not None for i in items)
+    assert {i.item_name for i in items} == {"Blue Jeans", "White Tee"}
+    assert all(i.order_id == order.id for i in items)
+
+
+async def test_upsert_order_update_path_returns_new_items(session: AsyncSession):
+    from app.store.repo import upsert_order
+
+    await upsert_order(
+        session, _extraction(items=[ExtractedItem(item_name="Old Shirt")])
+    )
+    await session.commit()
+
+    _, items = await upsert_order(
+        session,
+        _extraction(items=[ExtractedItem(item_name="New Coat")]),
+    )
+    await session.commit()
+
+    assert len(items) == 1
+    assert items[0].item_name == "New Coat"
+    assert items[0].id is not None
+
+
 async def test_upsert_order_updates_existing_not_duplicate(session: AsyncSession):
     from sqlalchemy import func, select
 

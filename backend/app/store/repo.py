@@ -78,6 +78,9 @@ async def upsert_order(
             existing.total_price = extraction.total_price
         if extraction.currency:
             existing.currency = extraction.currency
+        # vendor_name and purchase_date are first-write-wins: later emails for the same
+        # order (e.g. shipping notices) don't carry more accurate values than the original
+        # confirmation, so we don't overwrite them.
         await session.execute(delete(Item).where(Item.order_id == existing.id))
         await session.flush()
         order = existing
