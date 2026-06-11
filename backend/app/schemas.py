@@ -34,6 +34,7 @@ class ExtractionResult(BaseModel):
 
 class ItemResponse(BaseModel):
     """Flattened item + order info for GET /items."""
+
     id: str
     order_id: str
     item_name: str
@@ -51,6 +52,7 @@ class ItemResponse(BaseModel):
 
 class ItemBriefResponse(BaseModel):
     """Item fields used inside OrderWithItemsResponse."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -66,6 +68,7 @@ class ItemBriefResponse(BaseModel):
 
 class OrderWithItemsResponse(BaseModel):
     """Order with nested items for GET /orders."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -81,6 +84,7 @@ class OrderWithItemsResponse(BaseModel):
 
 class JobStatusResponse(BaseModel):
     """Response for GET /sync/status/{job_id}."""
+
     job_id: str
     state: str
     scanned: int
@@ -92,9 +96,11 @@ class JobStatusResponse(BaseModel):
 
 class SyncInitRequest(BaseModel):
     """Body for POST /sync/init."""
+
     stop_year: int = 2023
 
 
 class ItemStatusUpdate(BaseModel):
     """Body for POST /items/{item_id}/status."""
+
     status: Literal["active", "returned", "cancelled"]
