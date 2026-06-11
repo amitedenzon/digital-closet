@@ -50,12 +50,13 @@ async def record_processed(
 async def upsert_order(
     session: AsyncSession,
     extraction: ExtractionResult,
-) -> Order:
+) -> tuple[Order, list[Item]]:
     """
     Insert a new order or update the existing one matched by (vendor_domain, merchant_order_id).
     Items are always replaced wholesale (delete-all then re-insert) since we trust the
     latest extraction to be the most complete view of the order.
     NULL merchant_order_id bypasses dedup and always inserts a new row.
+    Returns the order and the freshly-inserted Item ORM objects (with IDs populated).
     """
     existing: Order | None = None
     if extraction.vendor_domain and extraction.merchant_order_id:
@@ -92,21 +93,22 @@ async def upsert_order(
         session.add(order)
         await session.flush()
 
+    new_items: list[Item] = []
     for item_data in extraction.items:
-        session.add(
-            Item(
-                order_id=order.id,
-                item_name=item_data.item_name,
-                brand=item_data.brand,
-                size=item_data.size,
-                color=item_data.color,
-                quantity=item_data.quantity,
-                price=item_data.price,
-                image_url_src=item_data.image_url,
-            )
+        item = Item(
+            order_id=order.id,
+            item_name=item_data.item_name,
+            brand=item_data.brand,
+            size=item_data.size,
+            color=item_data.color,
+            quantity=item_data.quantity,
+            price=item_data.price,
+            image_url_src=item_data.image_url,
         )
+        session.add(item)
+        new_items.append(item)
     await session.flush()
-    return order
+    return order, new_items
 
 
 async def get_or_create_sync_state(

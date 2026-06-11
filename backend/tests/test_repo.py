@@ -76,7 +76,7 @@ async def test_upsert_order_inserts_new(session: AsyncSession):
 
     from app.store.repo import upsert_order
 
-    order = await upsert_order(session, _extraction())
+    order, _ = await upsert_order(session, _extraction())
     await session.commit()
 
     saved = (
@@ -122,7 +122,7 @@ async def test_upsert_order_replaces_items_on_update(session: AsyncSession):
     await session.commit()
 
     second = _extraction(items=[ExtractedItem(item_name="New Coat")])
-    order = await upsert_order(session, second)
+    order, _ = await upsert_order(session, second)
     await session.commit()
 
     items = (
