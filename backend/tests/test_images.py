@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import io
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
+import pytest
 from PIL import Image
 
 from app.ingestion.images import (
+    _download_image,
     _image_ext_from_bytes,
     content_hash,
     is_junk_url,
@@ -121,3 +125,82 @@ def test_content_hash_is_64_hex_chars():
     h = content_hash(b"test")
     assert len(h) == 64
     assert all(c in "0123456789abcdef" for c in h)
+
+
+# --- _download_image ---
+
+
+@pytest.mark.asyncio
+async def test_download_image_success():
+    jpeg_bytes = _make_jpeg(200, 200)
+    mock_resp = MagicMock()
+    mock_resp.content = jpeg_bytes
+    mock_resp.headers = {"content-type": "image/jpeg"}
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.return_value = mock_resp
+
+    result = await _download_image(
+        "https://example.com/shoe.jpg", "example.com", mock_client
+    )
+
+    assert result is not None
+    content, ct = result
+    assert content == jpeg_bytes
+    assert "jpeg" in ct
+    mock_client.get.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_download_image_sends_user_agent_and_referer():
+    mock_resp = MagicMock()
+    mock_resp.content = _make_jpeg(200, 200)
+    mock_resp.headers = {"content-type": "image/jpeg"}
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.return_value = mock_resp
+
+    await _download_image("https://example.com/shoe.jpg", "example.com", mock_client)
+
+    call_kwargs = mock_client.get.call_args
+    headers = call_kwargs.kwargs.get("headers") or call_kwargs.args[1]
+    assert "User-Agent" in headers
+    assert headers["Referer"] == "https://example.com/"
+
+
+@pytest.mark.asyncio
+async def test_download_image_retries_once_on_failure():
+    jpeg_bytes = _make_jpeg(200, 200)
+
+    mock_fail = MagicMock()
+    mock_fail.raise_for_status.side_effect = Exception("HTTP 500")
+
+    mock_ok = MagicMock()
+    mock_ok.content = jpeg_bytes
+    mock_ok.headers = {"content-type": "image/jpeg"}
+    mock_ok.raise_for_status = MagicMock()
+
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.side_effect = [mock_fail, mock_ok]
+
+    result = await _download_image(
+        "https://example.com/shoe.jpg", "example.com", mock_client
+    )
+
+    assert result is not None
+    assert mock_client.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_download_image_returns_none_after_two_failures():
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.side_effect = Exception("HTTP 500")
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.return_value = mock_resp
+
+    result = await _download_image(
+        "https://example.com/shoe.jpg", "example.com", mock_client
+    )
+
+    assert result is None
+    assert mock_client.get.call_count == 2

@@ -5,6 +5,7 @@ import io
 import logging
 import re
 
+import httpx
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -42,3 +43,28 @@ def is_tiny_image(content: bytes, min_dimension: int = 100) -> bool:
 
 def content_hash(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+async def _download_image(
+    url: str,
+    vendor_domain: str,
+    client: httpx.AsyncClient,
+    timeout: float = 10.0,
+) -> tuple[bytes, str] | None:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; digital-closet/1.0)",
+        "Referer": f"https://{vendor_domain}/",
+    }
+    for attempt in range(2):
+        try:
+            resp = await client.get(
+                url, headers=headers, timeout=timeout, follow_redirects=True
+            )
+            resp.raise_for_status()
+            return resp.content, resp.headers.get("content-type", "")
+        except Exception as exc:
+            if attempt == 0:
+                logger.debug("image:download_retry url=%s", url)
+            else:
+                logger.warning("image:download_failed url=%s exc=%s", url, exc)
+    return None
