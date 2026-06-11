@@ -292,8 +292,12 @@ async def test_update_item_status_to_returned(client, test_session_factory):
         f"/items/{item_id}/status", json={"status": "returned"}
     )
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "returned"
+    assert response.json()["status"] == "returned"
+
+    # Verify persistence via a follow-up read
+    items_response = await client.get("/items")
+    assert items_response.status_code == 200
+    assert items_response.json()[0]["status"] == "returned"
 
 
 @pytest.mark.asyncio

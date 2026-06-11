@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app import jobs
 from app.config import Settings
@@ -162,7 +163,7 @@ async def sync_status(job_id: str) -> JobStatusResponse:
 async def list_items(
     vendor: str | None = None,
     brand: str | None = None,
-    status: str | None = None,
+    status: Literal["active", "returned", "cancelled"] | None = None,
     q: str | None = None,
     page: int = 1,
     per_page: int = 50,
@@ -203,8 +204,6 @@ async def list_items(
 async def list_orders(
     session: AsyncSession = Depends(get_session),
 ) -> list[OrderWithItemsResponse]:
-    from sqlalchemy.orm import selectinload
-
     stmt = select(Order).options(selectinload(Order.items))
     orders = (await session.execute(stmt)).scalars().all()
     return [
