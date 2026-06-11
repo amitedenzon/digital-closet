@@ -12,9 +12,11 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>({ vendor: "", brand: "", status: "", q: "" });
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadItemsRef = useRef<(() => Promise<void>) | null>(null);
 
   const loadItems = useCallback(async () => {
     try {
+      setError(null);
       const data = await fetchItems({
         vendor: filters.vendor || undefined,
         brand: filters.brand || undefined,
@@ -27,16 +29,24 @@ export default function App() {
     }
   }, [filters]);
 
-  useEffect(() => {
-    loadItems();
-  }, [loadItems]);
-
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    loadItemsRef.current = loadItems;
+  }, [loadItems]);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   const startPolling = useCallback(
     (jobId: string) => {
@@ -47,14 +57,14 @@ export default function App() {
           setJobStatus(status);
           if (status.done) {
             stopPolling();
-            await loadItems();
+            await loadItemsRef.current?.();
           }
         } catch {
           stopPolling();
         }
       }, 1000);
     },
-    [stopPolling, loadItems]
+    [stopPolling]
   );
 
   const handleInit = useCallback(async (stopYear: number) => {

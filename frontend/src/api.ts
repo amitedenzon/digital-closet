@@ -33,7 +33,8 @@ export async function fetchItems(params: {
   if (params.brand) qs.set("brand", params.brand);
   if (params.status) qs.set("status", params.status);
   if (params.q) qs.set("q", params.q);
-  const res = await fetch(`/items?${qs}`);
+  const query = qs.toString();
+  const res = await fetch(query ? `/items?${query}` : "/items");
   if (!res.ok) throw new Error(`/items failed: ${res.status}`);
   return res.json();
 }
