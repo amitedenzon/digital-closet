@@ -56,3 +56,72 @@ async def test_duplicate_order_across_two_emails_no_dup_items(session: AsyncSess
         .all()
     )
     assert len(all_items) == 2
+
+
+# ── DoD 4: missing order-id uses fallback key ─────────────────────────────────
+
+
+async def test_missing_order_id_uses_date_price_fallback_key(session: AsyncSession):
+    first = ExtractionResult(
+        is_valid_apparel_purchase=True,
+        vendor_name="Zara",
+        vendor_domain="zara.com",
+        merchant_order_id=None,
+        purchase_date=datetime(2024, 5, 15, 12, 0, 0, tzinfo=timezone.utc),
+        total_price=89.99,
+        items=[ExtractedItem(item_name="Blue Jeans")],
+    )
+    order, _, _ = await upsert_order(session, first)
+    await session.commit()
+
+    second = ExtractionResult(
+        is_valid_apparel_purchase=True,
+        vendor_name="Zara",
+        vendor_domain="zara.com",
+        merchant_order_id=None,
+        # Same date (different time within same UTC day) + same price → same order
+        purchase_date=datetime(2024, 5, 15, 18, 0, 0, tzinfo=timezone.utc),
+        total_price=89.99,
+        items=[ExtractedItem(item_name="Blue Jeans")],
+    )
+    order2, new_items, _ = await upsert_order(session, second)
+    await session.commit()
+
+    assert order2.id == order.id, "fallback key must match the same order"
+    assert new_items == [], "item already exists, must not be re-inserted"
+
+    count = (
+        await session.execute(select(func.count()).select_from(Order))
+    ).scalar_one()
+    assert count == 1
+
+
+async def test_different_date_creates_new_order(session: AsyncSession):
+    first = ExtractionResult(
+        is_valid_apparel_purchase=True,
+        vendor_name="Zara",
+        vendor_domain="zara.com",
+        merchant_order_id=None,
+        purchase_date=datetime(2024, 5, 15, tzinfo=timezone.utc),
+        total_price=89.99,
+        items=[ExtractedItem(item_name="Blue Jeans")],
+    )
+    await upsert_order(session, first)
+    await session.commit()
+
+    second = ExtractionResult(
+        is_valid_apparel_purchase=True,
+        vendor_name="Zara",
+        vendor_domain="zara.com",
+        merchant_order_id=None,
+        purchase_date=datetime(2024, 5, 16, tzinfo=timezone.utc),  # different date
+        total_price=89.99,
+        items=[ExtractedItem(item_name="Blue Jeans")],
+    )
+    await upsert_order(session, second)
+    await session.commit()
+
+    count = (
+        await session.execute(select(func.count()).select_from(Order))
+    ).scalar_one()
+    assert count == 2
