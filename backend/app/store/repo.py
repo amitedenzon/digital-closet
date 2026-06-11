@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +71,7 @@ async def _find_existing_order(
             Order.vendor_domain == extraction.vendor_domain,
             Order.merchant_order_id.is_(None),
             func.date(Order.purchase_date) == target_date,
-            Order.total_price == extraction.total_price,
+            Order.total_price == Decimal(str(extraction.total_price)),
         )
         return (await session.execute(stmt)).scalar_one_or_none()
 

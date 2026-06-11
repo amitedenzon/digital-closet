@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest  # noqa: F401 — used by future tests in this file
+import pytest
 from unittest.mock import MagicMock, patch
-from sqlalchemy import func, select  # noqa: F401 — func used by future tests
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Item, ItemStatus, Order, OrderStatus  # noqa: F401 — future tests
+from app.models import Item, ItemStatus, Order, OrderStatus
 from app.schemas import ExtractedItem, ExtractionResult
 from app.store.repo import apply_refund_or_cancellation, upsert_order
 
