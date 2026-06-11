@@ -10,6 +10,7 @@ from app.extraction.prompt import SYSTEM_PROMPT, build_user_message
 from app.schemas import ExtractionResult
 
 logger = logging.getLogger(__name__)
+_EXTRACTION_SCHEMA = ExtractionResult.model_json_schema()
 
 _RETRY_INSTRUCTION = (
     "Your previous response was not valid JSON matching the schema. "
@@ -68,7 +69,7 @@ class OllamaExtractor:
             "messages": messages,
             "stream": False,
             "options": {"temperature": 0},
-            "format": ExtractionResult.model_json_schema(),
+            "format": _EXTRACTION_SCHEMA,
         }
         response = await self._client.post(
             f"{self._base_url}/api/chat",

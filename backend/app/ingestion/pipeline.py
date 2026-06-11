@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.config import Settings
 from app.extraction.base import Extractor
 from app.extraction.cleaner import clean_message
 from app.ingestion.prefilter import should_keep
@@ -14,6 +15,7 @@ from app.providers.base import MailProvider, ProviderQuery
 from app.store import repo
 
 logger = logging.getLogger(__name__)
+_settings = Settings()
 
 _SUBJECT_KEYWORDS = [
     "order",
@@ -143,7 +145,9 @@ async def _drain(
                         )
                         continue
 
-                    cleaned = clean_message(message)
+                    cleaned = clean_message(
+                        message, max_chars=_settings.BODY_TEXT_MAX_CHARS
+                    )
                     extraction = await extractor.extract(cleaned)
 
                     if not extraction.is_valid_apparel_purchase:

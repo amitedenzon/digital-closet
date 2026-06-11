@@ -70,13 +70,11 @@ def test_extracted_item_defaults():
 
 
 def test_extractor_protocol_is_structural():
-    from app.extraction.base import Extractor
-    from app.providers.base import RawMessage
+    from app.extraction.base import CleanedMessage, Extractor
+    from app.schemas import ExtractionResult
 
     class MyExtractor:
-        async def extract(self, message: RawMessage):
-            from app.schemas import ExtractionResult
-
+        async def extract(self, message: CleanedMessage):
             return ExtractionResult(is_valid_apparel_purchase=False)
 
     # Structural subtyping: no explicit inheritance needed

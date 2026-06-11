@@ -42,5 +42,5 @@ def clean_message(
         subject=msg.subject,
         date=msg.date,
         body_text=body_text[:max_chars],
-        image_srcs=msg.image_srcs,
+        image_srcs=list(msg.image_srcs),
     )
