@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.extraction.base import Extractor
+from app.extraction.cleaner import clean_message
 from app.ingestion.prefilter import should_keep
 from app.models import MessageResult
 from app.providers.base import MailProvider, ProviderQuery
@@ -142,7 +143,8 @@ async def _drain(
                         )
                         continue
 
-                    extraction = await extractor.extract(message)
+                    cleaned = clean_message(message)
+                    extraction = await extractor.extract(cleaned)
 
                     if not extraction.is_valid_apparel_purchase:
                         await repo.record_processed(
