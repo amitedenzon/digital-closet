@@ -11,6 +11,7 @@ from app.ingestion.images import (
     _download_image,
     _image_ext_from_bytes,
     content_hash,
+    download_order_images,
     is_junk_url,
     is_tiny_image,
 )
@@ -208,3 +209,160 @@ async def test_download_image_returns_none_after_two_failures():
 
     assert result is None
     assert mock_client.get.call_count == 2
+
+
+# --- download_order_images ---
+
+
+def _mock_item(item_id: str) -> MagicMock:
+    item = MagicMock()
+    item.id = item_id
+    item.image_path = None
+    return item
+
+
+def _mock_client_with_content(content: bytes, ct: str = "image/png") -> AsyncMock:
+    mock_resp = MagicMock()
+    mock_resp.content = content
+    mock_resp.headers = {"content-type": ct}
+    mock_resp.raise_for_status = MagicMock()
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get.return_value = mock_resp
+    return client
+
+
+@pytest.mark.asyncio
+async def test_download_order_images_saves_image(tmp_path):
+    png_bytes = _make_png(200, 200)
+    client = _mock_client_with_content(png_bytes)
+    item = _mock_item("item-abc")
+    session = MagicMock()
+
+    await download_order_images(
+        session,
+        items=[item],
+        image_urls=["https://example.com/shoe.png"],
+        vendor_domain="example.com",
+        order_id="order-xyz",
+        store_dir=tmp_path,
+        client=client,
+        min_dimension=100,
+    )
+
+    expected = tmp_path / "example.com" / "order-xyz" / "item-abc.png"
+    assert expected.exists()
+    assert expected.read_bytes() == png_bytes
+    assert item.image_path == str(expected)
+
+
+@pytest.mark.asyncio
+async def test_download_order_images_skips_junk_url(tmp_path):
+    client = AsyncMock(spec=httpx.AsyncClient)
+    item = _mock_item("item-1")
+    session = MagicMock()
+
+    await download_order_images(
+        session,
+        items=[item],
+        image_urls=["data:image/png;base64,abc"],
+        vendor_domain="example.com",
+        order_id="order-xyz",
+        store_dir=tmp_path,
+        client=client,
+        min_dimension=100,
+    )
+
+    client.get.assert_not_called()
+    assert item.image_path is None
+
+
+@pytest.mark.asyncio
+async def test_download_order_images_skips_none_url(tmp_path):
+    client = AsyncMock(spec=httpx.AsyncClient)
+    item = _mock_item("item-1")
+    session = MagicMock()
+
+    await download_order_images(
+        session,
+        items=[item],
+        image_urls=[None],
+        vendor_domain="example.com",
+        order_id="order-xyz",
+        store_dir=tmp_path,
+        client=client,
+        min_dimension=100,
+    )
+
+    client.get.assert_not_called()
+    assert item.image_path is None
+
+
+@pytest.mark.asyncio
+async def test_download_order_images_skips_tiny_image(tmp_path):
+    tiny_bytes = _make_png(1, 1)
+    client = _mock_client_with_content(tiny_bytes)
+    item = _mock_item("item-1")
+    session = MagicMock()
+
+    await download_order_images(
+        session,
+        items=[item],
+        image_urls=["https://example.com/pixel.png"],
+        vendor_domain="example.com",
+        order_id="order-xyz",
+        store_dir=tmp_path,
+        client=client,
+        min_dimension=100,
+    )
+
+    assert item.image_path is None
+    assert not any(tmp_path.rglob("*.png"))
+
+
+@pytest.mark.asyncio
+async def test_download_order_images_dedup_identical_bytes(tmp_path):
+    png_bytes = _make_png(200, 200)
+    client = _mock_client_with_content(png_bytes)
+    item1 = _mock_item("item-1")
+    item2 = _mock_item("item-2")
+    session = MagicMock()
+
+    await download_order_images(
+        session,
+        items=[item1, item2],
+        image_urls=[
+            "https://example.com/img.png",
+            "https://example.com/img.png",
+        ],
+        vendor_domain="example.com",
+        order_id="order-xyz",
+        store_dir=tmp_path,
+        client=client,
+        min_dimension=100,
+    )
+
+    assert item1.image_path is not None
+    assert item2.image_path == item1.image_path
+    saved = list(tmp_path.rglob("*.png"))
+    assert len(saved) == 1
+
+
+@pytest.mark.asyncio
+async def test_download_order_images_continues_on_download_failure(tmp_path):
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get.side_effect = Exception("network error")
+    item = _mock_item("item-1")
+    session = MagicMock()
+
+    await download_order_images(
+        session,
+        items=[item],
+        image_urls=["https://example.com/shoe.jpg"],
+        vendor_domain="example.com",
+        order_id="order-xyz",
+        store_dir=tmp_path,
+        client=client,
+        min_dimension=100,
+    )
+
+    assert item.image_path is None
