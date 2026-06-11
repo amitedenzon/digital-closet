@@ -166,10 +166,70 @@ async def apply_refund_or_cancellation(
     extraction: ExtractionResult,
 ) -> Order:
     """
-    Stub — full implementation in Task 5 (returns/cancellations).
-    Raises NotImplementedError until Task 5 is implemented.
+    Match an existing order and mark all its items as returned.
+    Recomputes order.status: returned if all items are returned,
+    partially_returned if only some are.
+    If the order is not found (refund email arrived before the confirmation),
+    creates the order in returned state to preserve history.
+    Never hard-deletes rows.
     """
-    raise NotImplementedError("apply_refund_or_cancellation not yet implemented")
+    existing: Order | None = None
+
+    if extraction.vendor_domain and extraction.merchant_order_id:
+        stmt = select(Order).where(
+            Order.vendor_domain == extraction.vendor_domain,
+            Order.merchant_order_id == extraction.merchant_order_id,
+        )
+        existing = (await session.execute(stmt)).scalar_one_or_none()
+    elif (
+        extraction.vendor_domain
+        and extraction.purchase_date is not None
+        and extraction.total_price is not None
+    ):
+        target_date = str(extraction.purchase_date.date())
+        stmt = select(Order).where(
+            Order.vendor_domain == extraction.vendor_domain,
+            Order.merchant_order_id.is_(None),
+            func.date(Order.purchase_date) == target_date,
+            Order.total_price == extraction.total_price,
+        )
+        existing = (await session.execute(stmt)).scalar_one_or_none()
+
+    if existing is None:
+        logger.info(
+            "apply_refund_or_cancellation: order not found, creating returned stub vendor=%r order_id=%r",
+            extraction.vendor_domain,
+            extraction.merchant_order_id,
+        )
+        order = Order(
+            vendor_name=extraction.vendor_name or "",
+            vendor_domain=extraction.vendor_domain or "",
+            merchant_order_id=extraction.merchant_order_id,
+            purchase_date=extraction.purchase_date or datetime.now(timezone.utc),
+            currency=extraction.currency,
+            total_price=extraction.total_price,
+            status=OrderStatus.returned,
+        )
+        session.add(order)
+        await session.flush()
+        return order
+
+    items = (
+        (await session.execute(select(Item).where(Item.order_id == existing.id)))
+        .scalars()
+        .all()
+    )
+
+    for item in items:
+        item.status = ItemStatus.returned
+
+    if items and all(i.status == ItemStatus.returned for i in items):
+        existing.status = OrderStatus.returned
+    elif any(i.status in (ItemStatus.returned, ItemStatus.cancelled) for i in items):
+        existing.status = OrderStatus.partially_returned
+
+    await session.flush()
+    return existing
 
 
 async def get_or_create_sync_state(

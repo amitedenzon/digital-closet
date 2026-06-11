@@ -186,6 +186,29 @@ async def _drain(
                             logger.info("skip:llm message_id=%s", ref.message_id)
                             continue
 
+                        if extraction.is_refund_or_cancellation:
+                            order = await repo.apply_refund_or_cancellation(
+                                session, extraction
+                            )
+                            await repo.record_processed(
+                                session,
+                                message_id=ref.message_id,
+                                provider=provider_name,
+                                account=account,
+                                result=MessageResult.extracted,
+                                order_id=order.id,
+                            )
+                            await session.commit()
+                            result.kept += 1
+                            if job_state is not None:
+                                job_state.kept += 1
+                            logger.info(
+                                "refund_applied message_id=%s order_id=%s",
+                                ref.message_id,
+                                order.id,
+                            )
+                            continue
+
                         order, db_items, image_urls = await repo.upsert_order(
                             session, extraction
                         )
