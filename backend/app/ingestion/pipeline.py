@@ -13,6 +13,7 @@ from app.extraction.base import Extractor
 from app.extraction.cleaner import clean_message
 from app.ingestion import images
 from app.ingestion.prefilter import should_keep
+from app.jobs import JobState
 from app.models import MessageResult
 from app.providers.base import MailProvider, ProviderQuery
 from app.store import repo
@@ -53,6 +54,7 @@ async def run_initialize(
     provider_name: str,
     account: str,
     stop_year: int = DEFAULT_STOP_YEAR,
+    job_state: JobState | None = None,
 ) -> JobResult:
     query = ProviderQuery(
         after=datetime(stop_year, 1, 1, tzinfo=timezone.utc),
@@ -67,6 +69,7 @@ async def run_initialize(
         query=query,
         provider_name=provider_name,
         account=account,
+        job_state=job_state,
     )
 
 
@@ -78,6 +81,7 @@ async def run_since_checkpoint(
     provider_name: str,
     account: str,
     stop_year: int = DEFAULT_STOP_YEAR,
+    job_state: JobState | None = None,
 ) -> JobResult:
     async with session_factory() as session:
         state = await repo.get_or_create_sync_state(session, provider_name, account)
@@ -98,6 +102,7 @@ async def run_since_checkpoint(
         query=query,
         provider_name=provider_name,
         account=account,
+        job_state=job_state,
     )
 
 
@@ -109,6 +114,7 @@ async def _drain(
     query: ProviderQuery,
     provider_name: str,
     account: str,
+    job_state: JobState | None = None,
 ) -> JobResult:
     result = JobResult()
     page_cursor: str | None = None
@@ -120,10 +126,14 @@ async def _drain(
 
             for ref in page.refs:
                 result.scanned += 1
+                if job_state is not None:
+                    job_state.scanned += 1
 
                 async with session_factory() as session:
                     if await repo.is_processed(session, ref.message_id):
                         result.skipped += 1
+                        if job_state is not None:
+                            job_state.skipped += 1
                         logger.debug(
                             "skip:already_processed message_id=%s", ref.message_id
                         )
@@ -147,6 +157,8 @@ async def _drain(
                             )
                             await session.commit()
                             result.skipped += 1
+                            if job_state is not None:
+                                job_state.skipped += 1
                             logger.info(
                                 "skip:prefilter message_id=%s subject=%r",
                                 ref.message_id,
@@ -169,6 +181,8 @@ async def _drain(
                             )
                             await session.commit()
                             result.skipped += 1
+                            if job_state is not None:
+                                job_state.skipped += 1
                             logger.info("skip:llm message_id=%s", ref.message_id)
                             continue
 
@@ -192,6 +206,8 @@ async def _drain(
                         )
                         await session.commit()
                         result.kept += 1
+                        if job_state is not None:
+                            job_state.kept += 1
                         logger.info(
                             "extracted message_id=%s order_id=%s",
                             ref.message_id,
@@ -217,6 +233,8 @@ async def _drain(
                                 exc_info=record_exc,
                             )
                         result.errors += 1
+                        if job_state is not None:
+                            job_state.errors += 1
                         logger.exception(
                             "error:processing message_id=%s",
                             ref.message_id,
