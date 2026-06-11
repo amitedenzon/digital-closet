@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from decimal import Decimal
 
 from sqlalchemy import select
-from app.extraction.base import ExtractedItem, ExtractionResult
+from app.extraction.base import CleanedMessage
+from app.schemas import ExtractedItem, ExtractionResult
 from app.models import MessageResult, Order, ProcessedMessage
 from app.providers.base import MessageRef, Page, RawMessage
 from app.store import repo
@@ -28,7 +28,7 @@ def _good_extraction() -> ExtractionResult:
         merchant_order_id="12345",
         purchase_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
         currency="USD",
-        total_price=Decimal("49.99"),
+        total_price=49.99,
         items=[ExtractedItem(item_name="Blue Jeans", quantity=1)],
     )
 
@@ -51,7 +51,7 @@ class FakeExtractor:
     def __init__(self, result: ExtractionResult):
         self._result = result
 
-    async def extract(self, message: RawMessage) -> ExtractionResult:
+    async def extract(self, message: CleanedMessage) -> ExtractionResult:
         return self._result
 
 

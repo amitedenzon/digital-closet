@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extraction.base import ExtractedItem, ExtractionResult
+from app.schemas import ExtractedItem, ExtractionResult
 from app.models import MessageResult, Order
 
 
@@ -19,7 +19,7 @@ def _extraction(
         merchant_order_id=merchant_order_id,
         purchase_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
         currency="USD",
-        total_price=Decimal("99.99"),
+        total_price=99.99,
         items=[ExtractedItem(item_name="Blue Jeans", quantity=1)],
     )
     defaults.update(kwargs)
@@ -91,10 +91,10 @@ async def test_upsert_order_updates_existing_not_duplicate(session: AsyncSession
 
     from app.store.repo import upsert_order
 
-    await upsert_order(session, _extraction(total_price=Decimal("50.00")))
+    await upsert_order(session, _extraction(total_price=50.0))
     await session.commit()
 
-    await upsert_order(session, _extraction(total_price=Decimal("75.00")))
+    await upsert_order(session, _extraction(total_price=75.0))
     await session.commit()
 
     count = (

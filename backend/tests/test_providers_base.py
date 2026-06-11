@@ -54,7 +54,7 @@ def test_raw_message_image_srcs_defaults_to_empty():
 
 
 def test_extraction_result_defaults():
-    from app.extraction.base import ExtractionResult
+    from app.schemas import ExtractionResult
 
     r = ExtractionResult(is_valid_apparel_purchase=False)
     assert r.vendor_name is None
@@ -62,7 +62,7 @@ def test_extraction_result_defaults():
 
 
 def test_extracted_item_defaults():
-    from app.extraction.base import ExtractedItem
+    from app.schemas import ExtractedItem
 
     item = ExtractedItem(item_name="Blue Jeans")
     assert item.brand is None
@@ -75,7 +75,7 @@ def test_extractor_protocol_is_structural():
 
     class MyExtractor:
         async def extract(self, message: RawMessage):
-            from app.extraction.base import ExtractionResult
+            from app.schemas import ExtractionResult
 
             return ExtractionResult(is_valid_apparel_purchase=False)
 
