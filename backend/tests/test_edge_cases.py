@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Item, ItemStatus, Order, OrderStatus  # noqa: F401 — future tests
 from app.schemas import ExtractedItem, ExtractionResult
-from app.store.repo import upsert_order
+from app.store.repo import apply_refund_or_cancellation, upsert_order
 
 
 def _make_extraction(**kwargs) -> ExtractionResult:
@@ -183,8 +183,6 @@ async def test_refund_flips_items_to_returned_and_updates_order_status(
         merchant_order_id="ZR-001",
         purchase_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
-    from app.store.repo import apply_refund_or_cancellation
-
     returned_order = await apply_refund_or_cancellation(session, refund)
     await session.commit()
 
@@ -212,8 +210,6 @@ async def test_refund_seen_before_order_creates_returned_stub(session: AsyncSess
         merchant_order_id="ZR-999",
         purchase_date=datetime(2024, 2, 1, tzinfo=timezone.utc),
     )
-    from app.store.repo import apply_refund_or_cancellation
-
     order = await apply_refund_or_cancellation(session, refund)
     await session.commit()
 
