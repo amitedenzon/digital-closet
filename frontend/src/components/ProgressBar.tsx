@@ -20,7 +20,7 @@ export default function ProgressBar({ status }: Props) {
             style={{
               height: "100%",
               background: "#1a1a1a",
-              width: status.scanned > 0 ? `${Math.min(100, (status.kept + status.skipped) / status.scanned * 100)}%` : "10%",
+              width: status.scanned > 0 ? `${Math.min(100, (status.kept + status.skipped + status.errors) / status.scanned * 100)}%` : "10%",
               transition: "width 0.3s ease",
             }}
           />

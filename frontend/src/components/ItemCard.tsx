@@ -66,7 +66,7 @@ export default function ItemCard({ item }: Props) {
             <span />
           )}
           <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-            {item.vendor_domain} · {new Date(item.purchase_date).toLocaleDateString()}
+            {item.vendor_domain} · {new Date(item.purchase_date.includes("T") ? item.purchase_date : item.purchase_date + "T12:00:00").toLocaleDateString()}
           </span>
         </div>
       </div>
