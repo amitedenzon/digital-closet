@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest  # noqa: F401 — used by future tests in this file
+from unittest.mock import MagicMock, patch
 from sqlalchemy import func, select  # noqa: F401 — func used by future tests
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -215,3 +216,56 @@ async def test_refund_seen_before_order_creates_returned_stub(session: AsyncSess
 
     assert order.status == OrderStatus.returned
     assert order.merchant_order_id == "ZR-999"
+
+
+# ── Gmail rate-limit retry ────────────────────────────────────────────────────
+
+
+def test_with_backoff_retries_on_429():
+    from googleapiclient.errors import HttpError
+    from app.providers.gmail import _with_backoff
+
+    call_count = 0
+
+    def flaky():
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            resp = MagicMock()
+            resp.status = "429"
+            raise HttpError(resp=resp, content=b"Rate limited")
+        return {"ok": True}
+
+    with patch("app.providers.gmail.time") as mock_time:
+        result = _with_backoff(flaky)
+
+    assert result == {"ok": True}
+    assert call_count == 3
+    assert mock_time.sleep.call_count == 2
+
+
+def test_with_backoff_raises_immediately_on_non_rate_limit():
+    from googleapiclient.errors import HttpError
+    from app.providers.gmail import _with_backoff
+
+    def always_500():
+        resp = MagicMock()
+        resp.status = "500"
+        raise HttpError(resp=resp, content=b"Server error")
+
+    with pytest.raises(HttpError):
+        _with_backoff(always_500)
+
+
+def test_with_backoff_raises_after_max_retries():
+    from googleapiclient.errors import HttpError
+    from app.providers.gmail import _with_backoff
+
+    def always_429():
+        resp = MagicMock()
+        resp.status = "429"
+        raise HttpError(resp=resp, content=b"Rate limited")
+
+    with patch("app.providers.gmail.time"):
+        with pytest.raises(HttpError):
+            _with_backoff(always_429, max_retries=2)

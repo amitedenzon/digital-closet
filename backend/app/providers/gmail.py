@@ -11,6 +11,8 @@ import asyncio
 import base64
 import logging
 import os
+import random
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +21,28 @@ from bs4 import BeautifulSoup
 from app.providers.base import MessageRef, Page, ProviderQuery, RawMessage
 
 logger = logging.getLogger(__name__)
+
+
+def _with_backoff(fn, max_retries: int = 4):
+    """Run fn() with exponential backoff on Gmail rate-limit errors (429/403)."""
+    from googleapiclient.errors import HttpError
+
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except HttpError as exc:
+            code = int(exc.resp.status)
+            if code not in (429, 403) or attempt >= max_retries - 1:
+                raise
+            delay = (2 ** attempt) + random.uniform(0, 1)
+            logger.warning(
+                "gmail:rate_limit status=%s attempt=%d retry_in=%.2f",
+                code,
+                attempt,
+                delay,
+            )
+            time.sleep(delay)
+
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -141,7 +165,7 @@ class GmailProvider:
                 kwargs["pageToken"] = cursor
             return self._service.users().messages().list(**kwargs).execute()
 
-        raw = await loop.run_in_executor(None, _list)
+        raw = await loop.run_in_executor(None, lambda: _with_backoff(_list))
         messages = raw.get("messages", [])
         next_cursor: str | None = raw.get("nextPageToken")
 
@@ -167,7 +191,7 @@ class GmailProvider:
                 .execute()
             )
 
-        raw = await loop.run_in_executor(None, _get)
+        raw = await loop.run_in_executor(None, lambda: _with_backoff(_get))
         payload = raw.get("payload", {})
         headers = payload.get("headers", [])
         internal_ms = int(raw.get("internalDate", "0"))
