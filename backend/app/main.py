@@ -2,20 +2,28 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator, Literal
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import jobs
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
 from app.ingestion import pipeline
+from app.models import Item, ItemStatus, Order
 from app.providers.gmail import GmailProvider
 from app.extraction.ollama_extractor import OllamaExtractor
 from app.schemas import (
+    ItemBriefResponse,
+    ItemResponse,
+    ItemStatusUpdate,
     JobStatusResponse,
+    OrderWithItemsResponse,
     SyncInitRequest,
 )
 
@@ -145,3 +153,111 @@ async def sync_status(job_id: str) -> JobStatusResponse:
         errors=job.errors,
         done=job.done,
     )
+
+
+# ── data endpoints ────────────────────────────────────────────────────────────
+
+
+@app.get("/items", response_model=list[ItemResponse])
+async def list_items(
+    vendor: str | None = None,
+    brand: str | None = None,
+    status: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+    session: AsyncSession = Depends(get_session),
+) -> list[ItemResponse]:
+    stmt = select(Item, Order).join(Order, Item.order_id == Order.id)
+    if vendor:
+        stmt = stmt.where(Order.vendor_domain.ilike(f"%{vendor}%"))
+    if brand:
+        stmt = stmt.where(Item.brand.ilike(f"%{brand}%"))
+    if status:
+        stmt = stmt.where(Item.status == status)
+    if q:
+        stmt = stmt.where(Item.item_name.ilike(f"%{q}%") | Item.brand.ilike(f"%{q}%"))
+    stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+    rows = (await session.execute(stmt)).all()
+    return [
+        ItemResponse(
+            id=item.id,
+            order_id=item.order_id,
+            item_name=item.item_name,
+            brand=item.brand,
+            size=item.size,
+            color=item.color,
+            quantity=item.quantity,
+            price=float(item.price) if item.price is not None else None,
+            status=item.status.value,
+            vendor_name=order.vendor_name,
+            vendor_domain=order.vendor_domain,
+            purchase_date=order.purchase_date,
+            created_at=item.created_at,
+        )
+        for item, order in rows
+    ]
+
+
+@app.get("/orders", response_model=list[OrderWithItemsResponse])
+async def list_orders(
+    session: AsyncSession = Depends(get_session),
+) -> list[OrderWithItemsResponse]:
+    from sqlalchemy.orm import selectinload
+
+    stmt = select(Order).options(selectinload(Order.items))
+    orders = (await session.execute(stmt)).scalars().all()
+    return [
+        OrderWithItemsResponse(
+            id=o.id,
+            vendor_name=o.vendor_name,
+            vendor_domain=o.vendor_domain,
+            merchant_order_id=o.merchant_order_id,
+            purchase_date=o.purchase_date,
+            currency=o.currency,
+            total_price=float(o.total_price) if o.total_price is not None else None,
+            status=o.status.value,
+            items=[
+                ItemBriefResponse(
+                    id=i.id,
+                    item_name=i.item_name,
+                    brand=i.brand,
+                    size=i.size,
+                    color=i.color,
+                    quantity=i.quantity,
+                    price=float(i.price) if i.price is not None else None,
+                    status=i.status.value,
+                    image_path=i.image_path,
+                )
+                for i in o.items
+            ],
+        )
+        for o in orders
+    ]
+
+
+@app.get("/images/{item_id}")
+async def get_image(
+    item_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    stmt = select(Item.image_path).where(Item.id == item_id)
+    path_str = (await session.execute(stmt)).scalar_one_or_none()
+    if path_str is None or not Path(path_str).exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(path_str)
+
+
+@app.post("/items/{item_id}/status")
+async def update_item_status(
+    item_id: str,
+    body: ItemStatusUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    stmt = select(Item).where(Item.id == item_id)
+    item = (await session.execute(stmt)).scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.status = ItemStatus(body.status)
+    await session.commit()
+    return {"id": item_id, "status": item.status.value}
