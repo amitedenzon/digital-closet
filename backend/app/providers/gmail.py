@@ -34,7 +34,7 @@ def _with_backoff(fn, max_retries: int = 4):
             code = int(exc.resp.status)
             if code not in (429, 403) or attempt >= max_retries - 1:
                 raise
-            delay = (2 ** attempt) + random.uniform(0, 1)
+            delay = (2**attempt) + random.uniform(0, 1)
             logger.warning(
                 "gmail:rate_limit status=%s attempt=%d retry_in=%.2f",
                 code,
