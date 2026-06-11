@@ -13,7 +13,7 @@ PROMO_KEYWORDS: tuple[str, ...] = (
     "wishlist",
     "you left",
     "recommended for you",
-    " drop",
+    "drop",
     "sale",
 )
 
