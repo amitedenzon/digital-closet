@@ -125,3 +125,33 @@ async def test_different_date_creates_new_order(session: AsyncSession):
         await session.execute(select(func.count()).select_from(Order))
     ).scalar_one()
     assert count == 2
+
+
+# ── DoD 2: marketplace per-item brand ────────────────────────────────────────
+
+
+async def test_marketplace_per_item_brand_not_defaulted_to_vendor(
+    session: AsyncSession,
+):
+    extraction = ExtractionResult(
+        is_valid_apparel_purchase=True,
+        vendor_name="ASOS",
+        vendor_domain="asos.com",
+        merchant_order_id="ASOS-500",
+        purchase_date=datetime(2024, 4, 1, tzinfo=timezone.utc),
+        items=[
+            ExtractedItem(item_name="Slim Fit Jeans", brand="Levi's"),
+            ExtractedItem(item_name="Graphic Tee", brand="Nike"),
+        ],
+    )
+    order, items, _ = await upsert_order(session, extraction)
+    await session.commit()
+
+    assert order.vendor_domain == "asos.com"
+    assert len(items) == 2
+    brands = {i.brand for i in items}
+    assert "Levi's" in brands
+    assert "Nike" in brands
+    # Brands must never be defaulted to the vendor domain or vendor name
+    assert "asos.com" not in brands
+    assert "ASOS" not in brands
