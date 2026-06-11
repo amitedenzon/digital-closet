@@ -12,5 +12,6 @@ class Settings(BaseSettings):
     IMAGE_STORE_DIR: str = "data/images"
     IMAGE_MIN_DIMENSION: int = 100
     IMAGE_CONCURRENCY: int = 5
+    FRONTEND_ORIGIN: str = "http://localhost:5173"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
