@@ -8,7 +8,6 @@ from pathlib import Path
 
 import httpx
 from PIL import Image
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,6 @@ async def _download_image(
 
 
 async def download_order_images(
-    session: AsyncSession,
     items: list,
     image_urls: list[str | None],
     vendor_domain: str,

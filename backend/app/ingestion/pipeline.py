@@ -174,7 +174,6 @@ async def _drain(
 
                         order, db_items = await repo.upsert_order(session, extraction)
                         await images.download_order_images(
-                            session,
                             db_items,
                             [item.image_url for item in extraction.items],
                             vendor_domain=extraction.vendor_domain or "",

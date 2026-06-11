@@ -236,10 +236,8 @@ async def test_download_order_images_saves_image(tmp_path):
     png_bytes = _make_png(200, 200)
     client = _mock_client_with_content(png_bytes)
     item = _mock_item("item-abc")
-    session = MagicMock()
 
     await download_order_images(
-        session,
         items=[item],
         image_urls=["https://example.com/shoe.png"],
         vendor_domain="example.com",
@@ -259,10 +257,8 @@ async def test_download_order_images_saves_image(tmp_path):
 async def test_download_order_images_skips_junk_url(tmp_path):
     client = AsyncMock(spec=httpx.AsyncClient)
     item = _mock_item("item-1")
-    session = MagicMock()
 
     await download_order_images(
-        session,
         items=[item],
         image_urls=["data:image/png;base64,abc"],
         vendor_domain="example.com",
@@ -280,10 +276,8 @@ async def test_download_order_images_skips_junk_url(tmp_path):
 async def test_download_order_images_skips_none_url(tmp_path):
     client = AsyncMock(spec=httpx.AsyncClient)
     item = _mock_item("item-1")
-    session = MagicMock()
 
     await download_order_images(
-        session,
         items=[item],
         image_urls=[None],
         vendor_domain="example.com",
@@ -302,10 +296,8 @@ async def test_download_order_images_skips_tiny_image(tmp_path):
     tiny_bytes = _make_png(1, 1)
     client = _mock_client_with_content(tiny_bytes)
     item = _mock_item("item-1")
-    session = MagicMock()
 
     await download_order_images(
-        session,
         items=[item],
         image_urls=["https://example.com/logo.png"],
         vendor_domain="example.com",
@@ -325,10 +317,8 @@ async def test_download_order_images_dedup_identical_bytes(tmp_path):
     client = _mock_client_with_content(png_bytes)
     item1 = _mock_item("item-1")
     item2 = _mock_item("item-2")
-    session = MagicMock()
 
     await download_order_images(
-        session,
         items=[item1, item2],
         image_urls=[
             "https://example.com/img.png",
@@ -352,10 +342,8 @@ async def test_download_order_images_continues_on_download_failure(tmp_path):
     client = AsyncMock(spec=httpx.AsyncClient)
     client.get.side_effect = Exception("network error")
     item = _mock_item("item-1")
-    session = MagicMock()
 
     await download_order_images(
-        session,
         items=[item],
         image_urls=["https://example.com/shoe.jpg"],
         vendor_domain="example.com",
