@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncIterator, Literal
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -67,7 +67,7 @@ app.add_middleware(
 )
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session() -> AsyncIterator[AsyncSession]:
     async with _session_factory() as session:
         yield session
 
@@ -78,7 +78,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 async def _run_sync_job(
     job: jobs.JobState,
     *,
-    mode: str,  # "init" | "checkpoint"
+    mode: Literal["init", "checkpoint"],
     stop_year: int = 2023,
 ) -> None:
     try:
